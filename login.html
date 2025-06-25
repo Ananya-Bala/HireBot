@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - HireBot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #e6f2ff, #fbe29b);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-card {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+      padding: 2.5rem;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+    }
+
+    .login-icon {
+      background: #f0f0f0;
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      margin: 0 auto 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    h2 {
+      font-size: 1.6rem;
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+    }
+
+    p {
+      font-size: 0.95rem;
+      color: #555;
+      margin-bottom: 1.8rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.9rem;
+      margin-bottom: 1rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+
+    .forgot {
+      text-align: right;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      color: #007acc;
+      text-decoration: none;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .login-btn {
+      background: #000;
+      color: #fff;
+      border: none;
+      width: 100%;
+      padding: 0.9rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 1.5rem;
+    }
+
+    .login-btn:hover {
+      background: #333;
+    }
+
+    .or-divider {
+      margin: 1rem 0;
+      font-size: 0.9rem;
+      color: #aaa;
+    }
+
+    .social-buttons {
+      display: flex;
+      justify-content: space-around;
+    }
+
+    .social-buttons button {
+      background: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 0.6rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .social-buttons button:hover {
+      background: #f0f0f0;
+    }
+
+    .social-buttons img {
+      height: 18px;
+      margin-right: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-icon">🔐</div>
+    <h2>Sign in with email</h2>
+    <p>Smarter hiring starts here — for free.</p>
+
+    <form id="login-form">
+      <input id="email" type="email" placeholder="Email" required />
+      <input type="password" placeholder="Password" required />
+      <a href="#" class="forgot">Forgot password?</a>
+      <button class="login-btn" type="submit">Get Started</button>
+    </form>
+
+    <div class="or-divider">Or sign in with</div>
+    <div class="social-buttons">
+      <button><img src="https://img.icons8.com/color/24/000000/google-logo.png"/>Google</button>
+      <button><img src="https://img.icons8.com/ios-filled/24/000000/mac-os.png"/>Apple</button>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById("login-form");
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const email = document.getElementById("email").value;
+      const username = email.split("@")[0] || "User";
+      localStorage.setItem("username", username);
+      window.location.href = "dashboard.html";
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HireBot Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #fffbe6, #fbe29b);
+      color: #1a1a1a;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.2rem 2rem;
+      background: #fff;
+      border-bottom: 2px solid #f5dc9f;
+    }
+    header h1 {
+      font-weight: 700;
+      font-size: 1.5rem;
+    }
+    nav a {
+      margin-left: 1.5rem;
+      text-decoration: none;
+      color: #1a1a1a;
+      font-weight: 500;
+    }
+
+    .container {
+      padding: 2rem;
+    }
+
+    .center-card {
+      max-width: 450px;
+      margin: 5% auto;
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 2rem;
+      text-align: center;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.8rem;
+      margin-top: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 12px;
+      font-size: 1rem;
+    }
+
+    .btn {
+      margin: 1.5rem 0 0;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 0.7rem 1.4rem;
+      border: none;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-block;
+    }
+
+    .btn:hover {
+      background: #333;
+    }
+
+    .dashboard {
+      display: none;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 2rem;
+      padding: 2rem;
+    }
+
+    .card {
+      background: #ffffffcc;
+      border-radius: 20px;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+      margin-bottom: 1rem;
+    }
+
+    .card h2 {
+      font-size: 1.2rem;
+      margin-bottom: 1rem;
+    }
+
+    #transcriptPreview {
+      white-space: pre-wrap;
+      background: #fdf6e3;
+      padding: 1rem;
+      border-radius: 12px;
+      border: 1px solid #eee;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+    }
+
+    ul {
+      list-style-type: none;
+      padding: 0;
+    }
+
+    ul li {
+      margin: 0.5rem 0;
+      font-size: 1rem;
+    }
+
+    #botStatus {
+      margin-top: 0.7rem;
+      font-style: italic;
+      color: #5c5c5c;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>HireBot</h1>
+    <nav>
+      <a href="#">Dashboard</a>
+      <a href="#">Settings</a>
+      <a href="#" id="usernameDisplay">User</a>
+    </nav>
+  </header>
+
+  <div class="container" id="preAnalysis">
+    <div class="center-card">
+      <h2>Enter meeting link</h2>
+      <input type="text" id="meetingLink" placeholder="Paste Meet/Zoom link here"/>
+      <button class="btn" onclick="simulateBotJoin()">Start Analysis</button>
+      <div id="botStatus">Awaiting input...</div>
+    </div>
+  </div>
+
+  <main class="dashboard" id="postAnalysis">
+    <div class="card" id="transcriptSection">
+      <h2>Transcript</h2>
+      <pre id="transcriptPreview">Connecting...</pre>
+    </div>
+
+    <div>
+      <div class="card" id="chartSection">
+        <h2>Performance Bar</h2>
+        <canvas id="scoreChart"></canvas>
+      </div>
+      <div class="card" id="summarySection">
+        <h2>Score Summary</h2>
+        <ul>
+          <li><strong>Behavior:</strong> <span id="score1">-</span>%</li>
+          <li><strong>Confidence:</strong> <span id="score2">-</span>%</li>
+          <li><strong>Technical:</strong> <span id="score3">-</span>%</li>
+          <li><strong>Total Score:</strong> <span id="score4">-</span>%</li>
+          <li><strong>Recommendation:</strong> <span id="recommendation">-</span></li>
+        </ul>
+        <button class="btn" onclick="downloadPDF()">Download PDF</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const simulateBotJoin = () => {
+      const meetingLink = document.getElementById("meetingLink").value;
+      const status = document.getElementById("botStatus");
+      const transcript = document.getElementById("transcriptPreview");
+
+      if (!meetingLink.trim()) {
+        status.textContent = "❌ Please enter a valid meeting link.";
+        return;
+      }
+
+      status.textContent = "📡 Sending link to bot...";
+
+      fetch("http://localhost:3000/start-bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ link: meetingLink })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to start bot");
+        return res.text();
+      })
+      .then(() => {
+        status.textContent = "🤖 Bot is in the meeting. Recording started...";
+        const checkTranscript = setInterval(() => {
+          fetch("http://localhost:3000/transcript")
+            .then(res => {
+              if (!res.ok) throw new Error("Transcript not ready");
+              return res.text();
+            })
+            .then(trans => {
+              clearInterval(checkTranscript);
+              if (trans.trim().length === 0) {
+                status.textContent = "⚠️ Transcript is empty.";
+                return;
+              }
+              transcript.textContent = trans;
+              document.getElementById("preAnalysis").style.display = "none";
+              document.getElementById("postAnalysis").style.display = "grid";
+              generateReport();
+              status.textContent = "✅ Analysis complete.";
+            })
+            .catch(() => {
+              console.log("⏳ Waiting for transcript...");
+            });
+        }, 5000);
+      })
+      .catch(err => {
+        status.textContent = "❌ Failed to start bot.";
+        console.error(err);
+      });
+    };
+
+    const checkTranscriptOnLoad = () => {
+      const transcript = document.getElementById("transcriptPreview");
+      const status = document.getElementById("botStatus");
+
+      fetch("http://localhost:3000/transcript")
+        .then(res => {
+          if (!res.ok) throw new Error("Transcript not ready");
+          return res.text();
+        })
+        .then(trans => {
+          if (trans.trim().length === 0) {
+            transcript.textContent = "⚠️ Transcript is empty.";
+            return;
+          }
+          transcript.textContent = trans;
+          document.getElementById("preAnalysis").style.display = "none";
+          document.getElementById("postAnalysis").style.display = "grid";
+          generateReport();
+          status.textContent = "✅ Transcript loaded from previous meeting.";
+        })
+        .catch(() => {
+          transcript.textContent = "No transcript found.";
+        });
+    };
+
+    const generateReport = () => {
+      const behavior = Math.floor(Math.random() * 20) + 70;
+      const confidence = Math.floor(Math.random() * 20) + 65;
+      const technical = Math.floor(Math.random() * 20) + 60;
+      const total = Math.round((behavior + confidence + technical) / 3);
+      document.getElementById('score1').innerText = behavior;
+      document.getElementById('score2').innerText = confidence;
+      document.getElementById('score3').innerText = technical;
+      document.getElementById('score4').innerText = total;
+
+      let recommendation = "⚠️ Consider with Caution";
+      if (total >= 80) recommendation = "✅ Highly Recommended";
+      else if (total < 60) recommendation = "❌ Not Suitable";
+      document.getElementById("recommendation").innerText = recommendation;
+
+      const ctx = document.getElementById('scoreChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Behavior', 'Confidence', 'Technical'],
+          datasets: [{
+            label: 'Score (%)',
+            data: [behavior, confidence, technical],
+            backgroundColor: ['#ffe066', '#ffd43b', '#fab005'],
+            borderColor: '#1a1a1a',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100
+            }
+          }
+        }
+      });
+    };
+
+    const downloadPDF = () => {
+      html2pdf().from(document.querySelector(".dashboard")).save("HireBot_Report.pdf");
+    };
+
+    window.addEventListener("DOMContentLoaded", () => {
+      const name = localStorage.getItem("username") || "User";
+      document.getElementById("usernameDisplay").textContent = name;
+
+      // Automatically check transcript on load
+      checkTranscriptOnLoad();
+    });
+  </script>
+</body>
+</html>
