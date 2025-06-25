@@ -1,305 +1,3 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HireBot Dashboard</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #fffbe6, #fbe29b);
-      color: #1a1a1a;
-    }
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1.2rem 2rem;
-      background: #fff;
-      border-bottom: 2px solid #f5dc9f;
-    }
-    header h1 {
-      font-weight: 700;
-      font-size: 1.5rem;
-    }
-    nav a {
-      margin-left: 1.5rem;
-      text-decoration: none;
-      color: #1a1a1a;
-      font-weight: 500;
-    }
-
-    .container {
-      padding: 2rem;
-    }
-
-    .center-card {
-      max-width: 450px;
-      margin: 5% auto;
-      background: #fff;
-      border-radius: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-      padding: 2rem;
-      text-align: center;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 0.8rem;
-      margin-top: 1rem;
-      border: 1px solid #ddd;
-      border-radius: 12px;
-      font-size: 1rem;
-    }
-
-    .btn {
-      margin: 1.5rem 0 0;
-      background: #1a1a1a;
-      color: #fff;
-      padding: 0.7rem 1.4rem;
-      border: none;
-      border-radius: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-block;
-    }
-
-    .btn:hover {
-      background: #333;
-    }
-
-    .dashboard {
-      display: none;
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 2rem;
-      padding: 2rem;
-    }
-
-    .card {
-      background: #ffffffcc;
-      border-radius: 20px;
-      padding: 1.5rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
-      margin-bottom: 1rem;
-    }
-
-    .card h2 {
-      font-size: 1.2rem;
-      margin-bottom: 1rem;
-    }
-
-    #transcriptPreview {
-      white-space: pre-wrap;
-      background: #fdf6e3;
-      padding: 1rem;
-      border-radius: 12px;
-      border: 1px solid #eee;
-    }
-
-    canvas {
-      width: 100% !important;
-      height: auto !important;
-    }
-
-    ul {
-      list-style-type: none;
-      padding: 0;
-    }
-
-    ul li {
-      margin: 0.5rem 0;
-      font-size: 1rem;
-    }
-
-    #botStatus {
-      margin-top: 0.7rem;
-      font-style: italic;
-      color: #5c5c5c;
-    }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>HireBot</h1>
-    <nav>
-      <a href="#">Dashboard</a>
-      <a href="#">Settings</a>
-      <a href="#" id="usernameDisplay">User</a>
-    </nav>
-  </header>
-
-  <div class="container" id="preAnalysis">
-    <div class="center-card">
-      <h2>Enter meeting link</h2>
-      <input type="text" id="meetingLink" placeholder="Paste Meet/Zoom link here"/>
-      <button class="btn" onclick="simulateBotJoin()">Start Analysis</button>
-      <div id="botStatus">Awaiting input...</div>
-    </div>
-  </div>
-
-  <main class="dashboard" id="postAnalysis">
-    <div class="card" id="transcriptSection">
-      <h2>Transcript</h2>
-      <pre id="transcriptPreview">Connecting...</pre>
-    </div>
-
-    <div>
-      <div class="card" id="chartSection">
-        <h2>Performance Bar</h2>
-        <canvas id="scoreChart"></canvas>
-      </div>
-      <div class="card" id="summarySection">
-        <h2>Score Summary</h2>
-        <ul>
-          <li><strong>Behavior:</strong> <span id="score1">-</span>%</li>
-          <li><strong>Confidence:</strong> <span id="score2">-</span>%</li>
-          <li><strong>Technical:</strong> <span id="score3">-</span>%</li>
-          <li><strong>Total Score:</strong> <span id="score4">-</span>%</li>
-          <li><strong>Recommendation:</strong> <span id="recommendation">-</span></li>
-        </ul>
-        <button class="btn" onclick="downloadPDF()">Download PDF</button>
-      </div>
-    </div>
-  </main>
-
-  <script>
-    const simulateBotJoin = () => {
-      const meetingLink = document.getElementById("meetingLink").value;
-      const status = document.getElementById("botStatus");
-      const transcript = document.getElementById("transcriptPreview");
-
-      if (!meetingLink.trim()) {
-        status.textContent = "❌ Please enter a valid meeting link.";
-        return;
-      }
-
-      status.textContent = "📡 Sending link to bot...";
-
-      fetch("http://localhost:3000/start-bot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ link: meetingLink })
-      })
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to start bot");
-        return res.text();
-      })
-      .then(() => {
-        status.textContent = "🤖 Bot is in the meeting. Recording started...";
-        const checkTranscript = setInterval(() => {
-          fetch("http://localhost:3000/transcript")
-            .then(res => {
-              if (!res.ok) throw new Error("Transcript not ready");
-              return res.text();
-            })
-            .then(trans => {
-              clearInterval(checkTranscript);
-              if (trans.trim().length === 0) {
-                status.textContent = "⚠️ Transcript is empty.";
-                return;
-              }
-              transcript.textContent = trans;
-              document.getElementById("preAnalysis").style.display = "none";
-              document.getElementById("postAnalysis").style.display = "grid";
-              generateReport();
-              status.textContent = "✅ Analysis complete.";
-            })
-            .catch(() => {
-              console.log("⏳ Waiting for transcript...");
-            });
-        }, 5000);
-      })
-      .catch(err => {
-        status.textContent = "❌ Failed to start bot.";
-        console.error(err);
-      });
-    };
-
-    const checkTranscriptOnLoad = () => {
-      const transcript = document.getElementById("transcriptPreview");
-      const status = document.getElementById("botStatus");
-
-      fetch("http://localhost:3000/transcript")
-        .then(res => {
-          if (!res.ok) throw new Error("Transcript not ready");
-          return res.text();
-        })
-        .then(trans => {
-          if (trans.trim().length === 0) {
-            transcript.textContent = "⚠️ Transcript is empty.";
-            return;
-          }
-          transcript.textContent = trans;
-          document.getElementById("preAnalysis").style.display = "none";
-          document.getElementById("postAnalysis").style.display = "grid";
-          generateReport();
-          status.textContent = "✅ Transcript loaded from previous meeting.";
-        })
-        .catch(() => {
-          transcript.textContent = "No transcript found.";
-        });
-    };
-
-    const generateReport = () => {
-      const behavior = Math.floor(Math.random() * 20) + 70;
-      const confidence = Math.floor(Math.random() * 20) + 65;
-      const technical = Math.floor(Math.random() * 20) + 60;
-      const total = Math.round((behavior + confidence + technical) / 3);
-      document.getElementById('score1').innerText = behavior;
-      document.getElementById('score2').innerText = confidence;
-      document.getElementById('score3').innerText = technical;
-      document.getElementById('score4').innerText = total;
-
-      let recommendation = "⚠️ Consider with Caution";
-      if (total >= 80) recommendation = "✅ Highly Recommended";
-      else if (total < 60) recommendation = "❌ Not Suitable";
-      document.getElementById("recommendation").innerText = recommendation;
-
-      const ctx = document.getElementById('scoreChart').getContext('2d');
-      new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: ['Behavior', 'Confidence', 'Technical'],
-          datasets: [{
-            label: 'Score (%)',
-            data: [behavior, confidence, technical],
-            backgroundColor: ['#ffe066', '#ffd43b', '#fab005'],
-            borderColor: '#1a1a1a',
-            borderWidth: 1
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            y: {
-              beginAtZero: true,
-              max: 100
-            }
-          }
-        }
-      });
-    };
-
-    const downloadPDF = () => {
-      html2pdf().from(document.querySelector(".dashboard")).save("HireBot_Report.pdf");
-    };
-
-    window.addEventListener("DOMContentLoaded", () => {
-      const name = localStorage.getItem("username") || "User";
-      document.getElementById("usernameDisplay").textContent = name;
-
-      // Automatically check transcript on load
-      checkTranscriptOnLoad();
-    });
-  </script>
-</body>
-</html> -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -376,12 +74,25 @@
       background: #333;
     }
 
+    .btn:disabled {
+      background: #999;
+      cursor: not-allowed;
+    }
+
     .btn.danger {
       background: #dc3545;
     }
 
     .btn.danger:hover {
       background: #c82333;
+    }
+
+    .btn.success {
+      background: #28a745;
+    }
+
+    .btn.success:hover {
+      background: #218838;
     }
 
     .dashboard {
@@ -443,6 +154,15 @@
       background-color: #dc3545;
     }
 
+    .status-processing {
+      background-color: #ffc107;
+      animation: pulse 2s infinite;
+    }
+
+    .status-completed {
+      background-color: #17a2b8;
+    }
+
     @keyframes pulse {
       0% { opacity: 1; }
       50% { opacity: 0.5; }
@@ -480,6 +200,89 @@
       margin-top: 1rem;
       flex-wrap: wrap;
     }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3498db;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background-color: #e0e0e0;
+      border-radius: 4px;
+      margin: 1rem 0;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: #28a745;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .workflow-steps {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 1rem;
+      margin: 1rem 0;
+    }
+
+    .workflow-step {
+      display: flex;
+      align-items: center;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .workflow-step:last-child {
+      border-bottom: none;
+    }
+
+    .step-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      margin-right: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 0.8rem;
+    }
+
+    .step-pending {
+      background-color: #e9ecef;
+      color: #6c757d;
+    }
+
+    .step-active {
+      background-color: #ffc107;
+      color: #212529;
+    }
+
+    .step-completed {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .step-error {
+      background-color: #dc3545;
+      color: white;
+    }
   </style>
 </head>
 <body>
@@ -498,11 +301,35 @@
       <form id="meetingForm" onsubmit="return false;">
         <input type="text" id="meetingLink" placeholder="Paste Meet/Zoom link here" required/>
         <div class="control-buttons">
-          <button type="button" class="btn" onclick="startBotRecording(event)">Start Analysis</button>
+          <button type="button" class="btn" onclick="startBotRecording(event)" id="startBtn">Start Analysis</button>
           <button type="button" class="btn danger" onclick="stopBot(event)" id="stopBtn" style="display: none;">Stop Bot</button>
-          <button type="button" class="btn" onclick="clearTranscript(event)">Clear Transcript</button>
+          <button type="button" class="btn" onclick="clearAll(event)">Clear All</button>
         </div>
       </form>
+      
+      <div class="workflow-steps" id="workflowSteps" style="display: none;">
+        <div class="workflow-step" id="step1">
+          <div class="step-icon step-pending">1</div>
+          <span>Starting bot and joining meeting</span>
+        </div>
+        <div class="workflow-step" id="step2">
+          <div class="step-icon step-pending">2</div>
+          <span>Recording meeting audio</span>
+        </div>
+        <div class="workflow-step" id="step3">
+          <div class="step-icon step-pending">3</div>
+          <span>Meeting ended, processing audio</span>
+        </div>
+        <div class="workflow-step" id="step4">
+          <div class="step-icon step-pending">4</div>
+          <span>Transcribing audio with AI</span>
+        </div>
+        <div class="workflow-step" id="step5">
+          <div class="step-icon step-pending">5</div>
+          <span>Analyzing transcript and generating report</span>
+        </div>
+      </div>
+
       <div id="botStatus">
         <span class="status-indicator status-inactive"></span>
         Awaiting input...
@@ -512,279 +339,251 @@
 
   <main class="dashboard" id="postAnalysis">
     <div class="card" id="transcriptSection">
-      <h2>Live Transcript</h2>
+      <h2>Meeting Transcript</h2>
       <div class="transcript-stats">
-        <span>Lines: <span id="lineCount">0</span></span>
+        <span>Characters: <span id="charCount">0</span></span>
         <span>Words: <span id="wordCount">0</span></span>
         <span>Status: <span id="transcriptStatus">
           <span class="status-indicator status-inactive"></span>
-          Inactive
+          No transcript
         </span></span>
       </div>
-      <pre id="transcriptPreview" class="auto-scroll">Waiting for transcript...</pre>
+      <pre id="transcriptPreview" class="auto-scroll">No transcript available yet...</pre>
       <div class="control-buttons">
-        <button type="button" class="btn" onclick="refreshTranscript(event)">Refresh</button>
-        <button type="button" class="btn" onclick="toggleAutoScroll(event)" id="scrollBtn">Auto-scroll: ON</button>
-        <button type="button" class="btn danger" onclick="stopBot(event)">Stop Recording</button>
+        <button type="button" class="btn success" onclick="transcribeAudio(event)" id="transcribeBtn">Transcribe Audio</button>
+        <button type="button" class="btn" onclick="downloadTranscript(event)">Download Transcript</button>
+        <button type="button" class="btn danger" onclick="clearAll(event)">Clear All</button>
       </div>
     </div>
 
     <div>
       <div class="card" id="chartSection">
-        <h2>Performance Bar</h2>
+        <h2>Performance Analysis</h2>
         <canvas id="scoreChart"></canvas>
       </div>
       <div class="card" id="summarySection">
-        <h2>Score Summary</h2>
+        <h2>AI Assessment</h2>
         <ul>
-          <li><strong>Behavior:</strong> <span id="score1">-</span>%</li>
-          <li><strong>Confidence:</strong> <span id="score2">-</span>%</li>
-          <li><strong>Technical:</strong> <span id="score3">-</span>%</li>
-          <li><strong>Total Score:</strong> <span id="score4">-</span>%</li>
+          <li><strong>Communication:</strong> <span id="score1">-</span>%</li>
+          <li><strong>Technical Skills:</strong> <span id="score2">-</span>%</li>
+          <li><strong>Problem Solving:</strong> <span id="score3">-</span>%</li>
+          <li><strong>Overall Score:</strong> <span id="score4">-</span>%</li>
           <li><strong>Recommendation:</strong> <span id="recommendation">-</span></li>
         </ul>
         <div class="control-buttons">
-          <button type="button" class="btn" onclick="generateReport(event)">Generate Report</button>
-          <button type="button" class="btn" onclick="downloadPDF(event)">Download PDF</button>
+          <button type="button" class="btn" onclick="generateReport(event)" id="analyzeBtn" disabled>Analyze Transcript</button>
+          <button type="button" class="btn" onclick="downloadPDF(event)" id="pdfBtn" disabled>Download PDF</button>
         </div>
       </div>
     </div>
   </main>
 
   <script>
-    let transcriptUpdateInterval = null;
-    let autoScroll = true;
     let isRecording = false;
+    let botStatusInterval = null;
+    let transcriptData = null;
 
-    const startBotRecording = (event) => {
-      // Prevent any form submission or page refresh
+    const updateWorkflowStep = (stepNumber, status) => {
+      const step = document.getElementById(`step${stepNumber}`);
+      if (!step) return;
+      
+      const icon = step.querySelector('.step-icon');
+      icon.className = `step-icon step-${status}`;
+      
+      if (status === 'active') {
+        icon.innerHTML = '<div class="loading-spinner" style="width: 12px; height: 12px; border-width: 2px; margin: 0;"></div>';
+      } else if (status === 'completed') {
+        icon.innerHTML = '✓';
+      } else if (status === 'error') {
+        icon.innerHTML = '✗';
+      } else {
+        icon.innerHTML = stepNumber;
+      }
+    };
+
+    const startBotRecording = async (event) => {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
 
       const meetingLink = document.getElementById("meetingLink").value;
-      const status = document.getElementById("botStatus");
+      const startBtn = document.getElementById("startBtn");
       const stopBtn = document.getElementById("stopBtn");
+      const workflowSteps = document.getElementById("workflowSteps");
 
       if (!meetingLink.trim()) {
         updateStatus("❌ Please enter a valid meeting link.", false);
         return false;
       }
 
-      // Disable the start button to prevent double-clicks
-      const startBtn = event ? event.target : document.querySelector('button[onclick*="startBotRecording"]');
-      if (startBtn) {
-        startBtn.disabled = true;
-        startBtn.textContent = "Starting...";
-      }
+      // Show workflow and update UI
+      workflowSteps.style.display = "block";
+      startBtn.disabled = true;
+      startBtn.textContent = "Starting...";
+      stopBtn.style.display = "inline-block";
 
-      updateStatus("📡 Sending link to bot...", false);
+      updateWorkflowStep(1, 'active');
+      updateStatus("🤖 Starting bot and joining meeting...", false);
 
-      fetch("http://localhost:3000/start-bot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ link: meetingLink })
-      })
-      .then(res => {
-        if (!res.ok) {
-          throw new Error(`Server responded with status: ${res.status}`);
+      try {
+        const response = await fetch("http://localhost:3000/start-bot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ link: meetingLink })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server responded with status: ${response.status}`);
         }
-        return res.json();
-      })
-      .then(data => {
-        updateStatus("🤖 Bot is joining the meeting. Starting real-time recording...", true);
-        stopBtn.style.display = "inline-block";
+
+        const data = await response.json();
+        
+        updateWorkflowStep(1, 'completed');
+        updateWorkflowStep(2, 'active');
+        updateStatus("✅ Bot joined meeting. Recording audio...", true);
+        
         isRecording = true;
         
-        // Switch to dashboard view immediately
-        document.getElementById("preAnalysis").style.display = "none";
-        document.getElementById("postAnalysis").style.display = "grid";
-        
-        // Start polling for transcript updates
-        startTranscriptPolling();
+        // Start monitoring bot status
+        startBotStatusMonitoring();
         
         console.log("✅ Bot started successfully:", data);
-      })
-      .catch(err => {
-        updateStatus("❌ Failed to start bot: " + err.message, false);
-        console.error("Bot startup error:", err);
-        
-        // Re-enable the start button
-        if (startBtn) {
-          startBtn.disabled = false;
-          startBtn.textContent = "Start Analysis";
-        }
-      });
 
-      return false; // Prevent any form submission
+      } catch (err) {
+        updateWorkflowStep(1, 'error');
+        updateStatus("❌ Failed to start bot: " + err.message, false);
+        
+        // Reset UI
+        startBtn.disabled = false;
+        startBtn.textContent = "Start Analysis";
+        stopBtn.style.display = "none";
+        workflowSteps.style.display = "none";
+        
+        console.error("Bot startup error:", err);
+      }
+
+      return false;
     };
 
-    const stopBot = (event) => {
+    const stopBot = async (event) => {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
 
       const stopBtn = document.getElementById("stopBtn");
-      if (stopBtn) {
-        stopBtn.disabled = true;
-        stopBtn.textContent = "Stopping...";
-      }
+      stopBtn.disabled = true;
+      stopBtn.textContent = "Stopping...";
 
-      fetch("http://localhost:3000/stop-bot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      })
-      .then(res => res.json())
-      .then(data => {
-        updateStatus("🛑 Bot stopped successfully", false);
-        if (stopBtn) {
-          stopBtn.style.display = "none";
-          stopBtn.disabled = false;
-          stopBtn.textContent = "Stop Bot";
-        }
+      try {
+        const response = await fetch("http://localhost:3000/stop-bot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await response.json();
         
-        // Re-enable start button
-        const startBtn = document.querySelector('button[onclick*="startBotRecording"]');
-        if (startBtn) {
-          startBtn.disabled = false;
-          startBtn.textContent = "Start Analysis";
-        }
+        updateWorkflowStep(2, 'completed');
+        updateWorkflowStep(3, 'active');
+        updateStatus("🛑 Bot stopped. Processing audio...", false);
         
         isRecording = false;
-        stopTranscriptPolling();
+        stopBotStatusMonitoring();
+        
+        // Enable transcription after stopping
+        setTimeout(() => {
+          updateWorkflowStep(3, 'completed');
+          updateWorkflowStep(4, 'pending');
+          updateStatus("✅ Ready for transcription", false);
+          document.getElementById("transcribeBtn").disabled = false;
+          
+          // Switch to dashboard view
+          document.getElementById("preAnalysis").style.display = "none";
+          document.getElementById("postAnalysis").style.display = "grid";
+        }, 2000);
+        
+        // Reset buttons
+        stopBtn.style.display = "none";
+        stopBtn.disabled = false;
+        stopBtn.textContent = "Stop Bot";
+        
+        const startBtn = document.getElementById("startBtn");
+        startBtn.disabled = false;
+        startBtn.textContent = "Start Analysis";
         
         console.log("✅ Bot stopped:", data);
-      })
-      .catch(err => {
+
+      } catch (err) {
         console.error("Error stopping bot:", err);
         updateStatus("❌ Error stopping bot: " + err.message, false);
         
-        if (stopBtn) {
-          stopBtn.disabled = false;
-          stopBtn.textContent = "Stop Bot";
-        }
-      });
+        stopBtn.disabled = false;
+        stopBtn.textContent = "Stop Bot";
+      }
 
       return false;
     };
 
-    const clearTranscript = (event) => {
+    const transcribeAudio = async (event) => {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
       }
 
-      fetch("http://localhost:3000/transcript", {
-        method: "DELETE"
-      })
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById("transcriptPreview").textContent = "Transcript cleared...";
-        updateTranscriptStats(0, 0);
-        console.log("✅ Transcript cleared:", data);
-      })
-      .catch(err => {
-        console.error("Error clearing transcript:", err);
-      });
+      const transcribeBtn = document.getElementById("transcribeBtn");
+      const transcriptPreview = document.getElementById("transcriptPreview");
+      
+      transcribeBtn.disabled = true;
+      transcribeBtn.innerHTML = '<div class="loading-spinner"></div>Transcribing...';
+      
+      updateWorkflowStep(4, 'active');
+      updateStatus("🎤 Transcribing audio with AI...", false);
+      
+      transcriptPreview.textContent = "Processing audio file with AI transcription...";
+      updateTranscriptStatus("Processing", "status-processing");
 
-      return false;
-    };
-
-    const startTranscriptPolling = () => {
-      if (transcriptUpdateInterval) {
-        clearInterval(transcriptUpdateInterval);
-      }
-
-      // Poll every 2 seconds for real-time updates
-      transcriptUpdateInterval = setInterval(() => {
-        fetchTranscript();
-      }, 2000);
-
-      // Initial fetch
-      fetchTranscript();
-    };
-
-    const stopTranscriptPolling = () => {
-      if (transcriptUpdateInterval) {
-        clearInterval(transcriptUpdateInterval);
-        transcriptUpdateInterval = null;
-      }
-    };
-
-    const fetchTranscript = () => {
-      fetch("http://localhost:3000/transcript")
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            const transcriptElement = document.getElementById("transcriptPreview");
-            const oldScrollHeight = transcriptElement.scrollHeight;
-            const wasScrolledToBottom = transcriptElement.scrollTop + transcriptElement.clientHeight >= oldScrollHeight - 5;
-
-            transcriptElement.textContent = data.transcript || "No transcript yet...";
-            
-            // Update stats
-            updateTranscriptStats(data.lines, data.length);
-            
-            // Update status
-            const statusText = data.botStatus === 'active' ? 'Recording' : 'Inactive';
-            const statusClass = data.botStatus === 'active' ? 'status-active' : 'status-inactive';
-            document.getElementById("transcriptStatus").innerHTML = 
-              `<span class="status-indicator ${statusClass}"></span>${statusText}`;
-
-            // Auto-scroll to bottom if enabled and user was at bottom
-            if (autoScroll && wasScrolledToBottom) {
-              transcriptElement.scrollTop = transcriptElement.scrollHeight;
-            }
-
-            // Generate report if transcript has content and we haven't generated yet
-            if (data.lines > 0 && document.getElementById('score1').textContent === '-') {
-              generateReport();
-            }
-          }
-        })
-        .catch(err => {
-          console.error("Error fetching transcript:", err);
-          // Don't show error for expected 404s when no transcript exists yet
+      try {
+        const response = await fetch("http://localhost:5005/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
         });
-    };
 
-    const refreshTranscript = (event) => {
-      if (event) {
-        event.preventDefault();
-        event.stopPropagation();
+        const data = await response.json();
+        
+        if (data.success) {
+          transcriptData = data.transcript;
+          
+          updateWorkflowStep(4, 'completed');
+          updateWorkflowStep(5, 'pending');
+          
+          transcriptPreview.textContent = data.transcript || "No speech detected in the audio.";
+          updateTranscriptStats(data.transcript);
+          updateTranscriptStatus("Completed", "status-completed");
+          updateStatus("✅ Transcription completed!", false);
+          
+          // Enable analysis buttons
+          document.getElementById("analyzeBtn").disabled = false;
+          
+          console.log("✅ Transcription completed");
+          
+        } else {
+          throw new Error(data.message || "Transcription failed");
+        }
+
+      } catch (err) {
+        updateWorkflowStep(4, 'error');
+        updateStatus("❌ Transcription failed: " + err.message, false);
+        transcriptPreview.textContent = "Transcription failed. Please check that the audio file exists and is in the correct format.";
+        updateTranscriptStatus("Failed", "status-inactive");
+        
+        console.error("Transcription error:", err);
       }
-      fetchTranscript();
+
+      transcribeBtn.disabled = false;
+      transcribeBtn.innerHTML = "Transcribe Audio";
+      
       return false;
-    };
-
-    const toggleAutoScroll = (event) => {
-      if (event) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      autoScroll = !autoScroll;
-      const btn = document.getElementById("scrollBtn");
-      btn.textContent = `Auto-scroll: ${autoScroll ? 'ON' : 'OFF'}`;
-      return false;
-    };
-
-    const updateTranscriptStats = (lines, characters) => {
-      document.getElementById("lineCount").textContent = lines;
-      const words = characters > 0 ? Math.floor(characters / 5) : 0; // Rough estimate
-      document.getElementById("wordCount").textContent = words;
-    };
-
-    const updateStatus = (message, active) => {
-      const status = document.getElementById("botStatus");
-      const statusClass = active ? 'status-active' : 'status-inactive';
-      status.innerHTML = `<span class="status-indicator ${statusClass}"></span>${message}`;
-    };
-
-    const checkTranscriptOnLoad = () => {
-      // Check if there's an existing transcript
-      fetchTranscript();
     };
 
     const generateReport = (event) => {
@@ -793,25 +592,58 @@
         event.stopPropagation();
       }
       
-      const behavior = Math.floor(Math.random() * 20) + 70;
-      const confidence = Math.floor(Math.random() * 20) + 65;
-      const technical = Math.floor(Math.random() * 20) + 60;
-      const total = Math.round((behavior + confidence + technical) / 3);
+      if (!transcriptData) {
+        alert("Please transcribe the audio first!");
+        return false;
+      }
       
-      document.getElementById('score1').innerText = behavior;
-      document.getElementById('score2').innerText = confidence;
-      document.getElementById('score3').innerText = technical;
+      updateWorkflowStep(5, 'active');
+      updateStatus("🔍 Analyzing transcript...", false);
+      
+      // Simulate AI analysis with more realistic scoring based on transcript length
+      const transcriptLength = transcriptData.length;
+      const wordCount = transcriptData.split(' ').length;
+      
+      // Base scores with some randomization
+      let communication = Math.floor(Math.random() * 20) + 70;
+      let technical = Math.floor(Math.random() * 20) + 65;
+      let problemSolving = Math.floor(Math.random() * 20) + 60;
+      
+      // Adjust scores based on transcript quality
+      if (transcriptLength < 100) {
+        // Very short transcript - lower scores
+        communication -= 15;
+        technical -= 10;
+        problemSolving -= 20;
+      } else if (transcriptLength > 1000) {
+        // Good length transcript - boost scores
+        communication += 5;
+        technical += 5;
+        problemSolving += 10;
+      }
+      
+      // Ensure scores stay within bounds
+      communication = Math.max(40, Math.min(95, communication));
+      technical = Math.max(35, Math.min(95, technical));
+      problemSolving = Math.max(30, Math.min(95, problemSolving));
+      
+      const total = Math.round((communication + technical + problemSolving) / 3);
+      
+      document.getElementById('score1').innerText = communication;
+      document.getElementById('score2').innerText = technical;
+      document.getElementById('score3').innerText = problemSolving;
       document.getElementById('score4').innerText = total;
 
       let recommendation = "⚠️ Consider with Caution";
       if (total >= 80) recommendation = "✅ Highly Recommended";
-      else if (total < 60) recommendation = "❌ Not Suitable";
+      else if (total >= 70) recommendation = "🟡 Recommended with Reservations";
+      else if (total < 60) recommendation = "❌ Not Recommended";
+      
       document.getElementById("recommendation").innerText = recommendation;
 
-      // Update or create chart
+      // Update chart
       const ctx = document.getElementById('scoreChart').getContext('2d');
       
-      // Destroy existing chart if it exists
       if (window.performanceChart) {
         window.performanceChart.destroy();
       }
@@ -819,10 +651,10 @@
       window.performanceChart = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels: ['Behavior', 'Confidence', 'Technical'],
+          labels: ['Communication', 'Technical', 'Problem Solving'],
           datasets: [{
             label: 'Score (%)',
-            data: [behavior, confidence, technical],
+            data: [communication, technical, problemSolving],
             backgroundColor: ['#ffe066', '#ffd43b', '#fab005'],
             borderColor: '#1a1a1a',
             borderWidth: 1
@@ -844,7 +676,37 @@
         }
       });
 
-      console.log("✅ Report generated with scores:", { behavior, confidence, technical, total });
+      updateWorkflowStep(5, 'completed');
+      updateStatus("✅ Analysis completed!", false);
+      
+      // Enable PDF download
+      document.getElementById("pdfBtn").disabled = false;
+
+      console.log("✅ Report generated:", { communication, technical, problemSolving, total });
+      return false;
+    };
+
+    const downloadTranscript = (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      
+      if (!transcriptData) {
+        alert("No transcript available to download!");
+        return false;
+      }
+      
+      const blob = new Blob([transcriptData], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'meeting_transcript.txt';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
       return false;
     };
 
@@ -857,7 +719,7 @@
       const element = document.querySelector(".dashboard");
       const opt = {
         margin: 1,
-        filename: 'HireBot_Report.pdf',
+        filename: 'HireBot_Interview_Report.pdf',
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2 },
         jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
@@ -867,40 +729,121 @@
       return false;
     };
 
-    // Check bot status periodically
-    const checkBotStatus = () => {
-      fetch("http://localhost:3000/bot-status")
-        .then(res => res.json())
-        .then(data => {
-          if (data.status === 'active' && !transcriptUpdateInterval) {
-            // Bot is active but we're not polling, start polling
-            startTranscriptPolling();
-          } else if (data.status === 'inactive' && transcriptUpdateInterval) {
-            // Bot is inactive but we're still polling, stop polling
-            stopTranscriptPolling();
+    const clearAll = (event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      
+      // Reset all workflow steps
+      for (let i = 1; i <= 5; i++) {
+        updateWorkflowStep(i, 'pending');
+      }
+      
+      // Hide workflow
+      document.getElementById("workflowSteps").style.display = "none";
+      
+      // Reset transcript
+      transcriptData = null;
+      document.getElementById("transcriptPreview").textContent = "No transcript available yet...";
+      updateTranscriptStats("");
+      updateTranscriptStatus("No transcript", "status-inactive");
+      
+      // Reset scores
+      document.getElementById('score1').innerText = "-";
+      document.getElementById('score2').innerText = "-";
+      document.getElementById('score3').innerText = "-";
+      document.getElementById('score4').innerText = "-";
+      document.getElementById("recommendation").innerText = "-";
+      
+      // Destroy chart
+      if (window.performanceChart) {
+        window.performanceChart.destroy();
+        window.performanceChart = null;
+      }
+      
+      // Reset buttons
+      document.getElementById("transcribeBtn").disabled = true;
+      document.getElementById("analyzeBtn").disabled = true;
+      document.getElementById("pdfBtn").disabled = true;
+      
+      // Switch back to pre-analysis view
+      document.getElementById("preAnalysis").style.display = "block";
+      document.getElementById("postAnalysis").style.display = "none";
+      
+      updateStatus("🔄 All data cleared. Ready for new analysis.", false);
+      
+      return false;
+    };
+
+    const startBotStatusMonitoring = () => {
+      botStatusInterval = setInterval(async () => {
+        try {
+          const response = await fetch("http://localhost:3000/bot-status");
+          const data = await response.json();
+          
+          if (data.status === 'inactive' && isRecording) {
+            // Bot stopped automatically (meeting ended)
+            console.log("🎯 Meeting ended detected");
+            isRecording = false;
+            stopBotStatusMonitoring();
+            
+            updateWorkflowStep(2, 'completed');
+            updateWorkflowStep(3, 'active');
+            updateStatus("🎯 Meeting ended. Processing audio...", false);
+            
+            setTimeout(() => {
+              updateWorkflowStep(3, 'completed');
+              updateStatus("✅ Ready for transcription", false);
+              document.getElementById("transcribeBtn").disabled = false;
+              document.getElementById("stopBtn").style.display = "none";
+              
+              // Switch to dashboard view
+              document.getElementById("preAnalysis").style.display = "none";
+              document.getElementById("postAnalysis").style.display = "grid";
+            }, 2000);
           }
-        })
-        .catch(err => {
-          console.log("Bot status check failed (normal if server not running)");
-        });
+        } catch (err) {
+          console.log("Bot status check failed:", err);
+        }
+      }, 5000);
+    };
+
+    const stopBotStatusMonitoring = () => {
+      if (botStatusInterval) {
+        clearInterval(botStatusInterval);
+        botStatusInterval = null;
+      }
+    };
+
+    const updateTranscriptStats = (transcript) => {
+      const charCount = transcript ? transcript.length : 0;
+      const wordCount = transcript ? transcript.split(' ').filter(word => word.length > 0).length : 0;
+      
+      document.getElementById("charCount").textContent = charCount;
+      document.getElementById("wordCount").textContent = wordCount;
+    };
+
+    const updateTranscriptStatus = (text, statusClass) => {
+      document.getElementById("transcriptStatus").innerHTML = 
+        `<span class="status-indicator ${statusClass}"></span>${text}`;
+    };
+
+    const updateStatus = (message, active) => {
+      const status = document.getElementById("botStatus");
+      const statusClass = active ? 'status-active' : 'status-inactive';
+      status.innerHTML = `<span class="status-indicator ${statusClass}"></span>${message}`;
     };
 
     // Initialize on page load
     window.addEventListener("DOMContentLoaded", () => {
       const name = localStorage.getItem("username") || "User";
       document.getElementById("usernameDisplay").textContent = name;
-
-      // Check for existing transcript and bot status
-      checkTranscriptOnLoad();
-      checkBotStatus();
-
-      // Check bot status every 10 seconds
-      setInterval(checkBotStatus, 10000);
     });
 
     // Cleanup on page unload
     window.addEventListener("beforeunload", () => {
-      stopTranscriptPolling();
+      stopBotStatusMonitoring();
     });
   </script>
 </body>
