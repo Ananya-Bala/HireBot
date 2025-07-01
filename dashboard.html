@@ -370,10 +370,18 @@
           <li><strong>Overall Score:</strong> <span id="score4">-</span>%</li>
           <li><strong>Recommendation:</strong> <span id="recommendation">-</span></li>
         </ul>
+        <h2>AI Summary</h2>
+        <p><strong>Inferred Role:</strong> <span id="inferredRole">-</span></p>
+
+        <p id="geminiSummary" style="white-space: pre-line; font-style: italic;">
+          No summary generated yet.
+        </p>
         <div class="control-buttons">
           <button type="button" class="btn" onclick="generateReport(event)" id="analyzeBtn" disabled>Analyze Transcript</button>
           <button type="button" class="btn" onclick="downloadPDF(event)" id="pdfBtn" disabled>Download PDF</button>
         </div>
+        
+
       </div>
     </div>
   </main>
@@ -586,7 +594,7 @@
       return false;
     };
 
-    const generateReport = (event) => {
+    const generateReport =async (event) => {
       if (event) {
         event.preventDefault();
         event.stopPropagation();
@@ -599,6 +607,8 @@
       
       updateWorkflowStep(5, 'active');
       updateStatus("🔍 Analyzing transcript...", false);
+      await summarizeTranscriptWithGemini(transcriptData);
+
       
       // Simulate AI analysis with more realistic scoring based on transcript length
       const transcriptLength = transcriptData.length;
@@ -846,5 +856,149 @@
       stopBotStatusMonitoring();
     });
   </script>
+  <script>
+  async function inferJobRoleFromTranscript_HB(transcript) {
+  const res = await fetch("asset/job_roles.json");
+  const jobList = await res.json();
+  const lowerTranscript = transcript.toLowerCase();
+
+  for (const job of jobList) {
+    const jobTitle = job.title.toLowerCase();
+    if (lowerTranscript.includes(jobTitle)) {
+      return job.title;
+    }
+  }
+  return "Unknown Role";
+}
+async function getJobDescription(roleTitle) {
+  const res = await fetch("asset/job_roles.json");
+  const jobList = await res.json();
+  const match = jobList.find(job => job.title.toLowerCase() === roleTitle.toLowerCase());
+  return match?.description || "General job role context.";
+}
+ 
+  
+
+  async function summarizeTranscriptWithGemini(transcript) {
+    const G_API_KEY = "AIzaSyAWAQ9vNmIgpNy5Lyt-cNEQ9Dc64ZWSfVA";
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${G_API_KEY}`;
+    const inferredRole = await inferJobRoleFromTranscript_HB(transcript);
+const jobDescription = await getJobDescription(inferredRole);
+document.getElementById("inferredRole").innerText = inferredRole;
+
+const prompt = `
+You are an expert technical interviewer and HR analyst. Based on the following transcript of a job interview, evaluate the candidate in a concise and structured way.
+
+Only include what is directly evident from the conversation.
+
+Interview Transcript:
+${transcript}
+
+Job Role Context:
+${jobDescription}
+
+Please return your analysis in this format:
+
+1. Candidate Overview:
+- Brief background and relevant experience
+
+2. Technical Evaluation:
+- Core technical topics discussed
+- Strength in problem-solving and subject knowledge
+
+3. Communication & Soft Skills:
+- Clarity, confidence, and articulation
+- Responsiveness and interaction quality
+
+4. Final Summary:
+- Overall impression in 2-3 lines
+- Recommendation: Hire / Conditional Hire / Reject
+`;
+
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+
+      const data = await response.json();
+      const summary = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (summary) {
+        document.getElementById("geminiSummary").innerText = summary;
+      } else {
+        throw new Error("Gemini returned no summary.");
+      }
+    } catch (err) {
+      console.error("Gemini summary error:", err);
+      document.getElementById("geminiSummary").innerText = "❌ Failed to summarize transcript.";
+    }
+  }
+
+  async function transcribeAudio(event) {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    const transcribeBtn = document.getElementById("transcribeBtn");
+    const transcriptPreview = document.getElementById("transcriptPreview");
+
+    transcribeBtn.disabled = true;
+    transcribeBtn.innerHTML = '<div class="loading-spinner"></div>Transcribing...';
+
+    updateWorkflowStep(4, 'active');
+    updateStatus("🎤 Transcribing audio with AI...", false);
+
+    transcriptPreview.textContent = "Processing audio file with AI transcription...";
+    updateTranscriptStatus("Processing", "status-processing");
+
+    try {
+      const response = await fetch("http://localhost:5005/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        transcriptData = data.transcript;  // ✅ save transcript globally
+        await summarizeTranscriptWithGemini(transcriptData);  // ✅ call Gemini
+
+        updateWorkflowStep(4, 'completed');
+        updateWorkflowStep(5, 'pending');
+
+        transcriptPreview.textContent = data.transcript || "No speech detected in the audio.";
+        updateTranscriptStats(data.transcript);
+        updateTranscriptStatus("Completed", "status-completed");
+        updateStatus("✅ Transcription completed!", false);
+        document.getElementById("analyzeBtn").disabled = false;
+      } else {
+        throw new Error(data.message || "Transcription failed");
+      }
+
+    } catch (err) {
+      updateWorkflowStep(4, 'error');
+      updateStatus("❌ Transcription failed: " + err.message, false);
+      transcriptPreview.textContent = "Transcription failed. Please check that the audio file exists and is in the correct format.";
+      updateTranscriptStatus("Failed", "status-inactive");
+      console.error("Transcription error:", err);
+    }
+
+    transcribeBtn.disabled = false;
+    transcribeBtn.innerHTML = "Transcribe Audio";
+    return false;
+  }
+  
+
+  
+
+</script>
+
+
 </body>
 </html>

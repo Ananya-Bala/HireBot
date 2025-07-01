@@ -25,13 +25,13 @@ if (!fs.existsSync(outputDir)) {
 // 🎙️ Start system audio recording using ffmpeg
 console.log("🎙️ Starting FFmpeg audio recording...");
 const ffmpeg = spawn("ffmpeg", [
-  "-f", "avfoundation", // macOS specific
-  "-i", ":0", // use ":0" for default system audio input
-  "-ac", "1", // mono channel (required by Vosk)
-  "-ar", "16000", // 16kHz sample rate (required by Vosk)
-  "-acodec", "pcm_s16le", // 16-bit PCM (required by Vosk)
-  "-t", "3600", // max duration: 1 hour
-  "-y", // overwrite output file if it exists
+  "-f", "dshow",
+  "-i", "audio=Stereo Mix (Realtek(R) Audio)",
+  "-ac", "1",
+  "-ar", "16000",
+  "-acodec", "pcm_s16le",
+  "-t", "3600",
+  "-y",
   audioPath
 ]);
 
@@ -51,22 +51,25 @@ ffmpeg.on("close", (code) => {
   const browser = await puppeteer.launch({
     headless: false,
     args: [
-      "--incognito",
-      "--use-fake-ui-for-media-stream",
+      // '--incognito', // ❌ disable incognito to prevent sign-in popup
+      // "--use-fake-ui-for-media-stream",
+      // "--use-fake-device-for-media-stream",
+      // "--mute-audio",
       "--disable-features=IsolateOrigins,site-per-process",
       "--disable-infobars",
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--allow-running-insecure-content",
       "--disable-web-security",
-      "--disable-features=VizDisplayCompositor",
+      "--disable-features=VizDisplayCompositor"
     ],
   });
 
   const page = (await browser.pages())[0];
 
-  const context = browser.defaultBrowserContext();
-  await context.overridePermissions(meetingLink, ['microphone', 'camera']);
+  // Removed overridePermissions because it causes ProtocolError in some Puppeteer setups
+  // const context = browser.defaultBrowserContext();
+  // await context.overridePermissions(meetingLink, ['microphone', 'camera']);
 
   await page.goto(meetingLink, {
     waitUntil: "networkidle2",
@@ -78,17 +81,31 @@ ffmpeg.on("close", (code) => {
     await page.type('input[placeholder="Your name"]', 'HireBot', { delay: 100 });
     console.log("✍️ Entered name");
 
+    // Turn off mic and camera if they're on
+    try {
+      const micBtn = await page.$('[aria-label="Turn off microphone (ctrl + d)"]');
+      if (micBtn) {
+        await micBtn.click();
+        console.log("🔇 Mic turned off");
+      }
+      const camBtn = await page.$('[aria-label="Turn off camera (ctrl + e)"]');
+      if (camBtn) {
+        await camBtn.click();
+        console.log("📷 Camera turned off");
+      }
+    } catch (micCamErr) {
+      console.warn("⚠️ Could not find mic/cam toggle buttons.");
+    }
+
     const joinButton = await page.$('span.UywwFc-RLmnJb') || await page.$('button[jsname="Qx7uuf"]');
     if (joinButton) {
       await joinButton.click();
       console.log("✅ Joined the meeting");
     }
 
-    await new Promise(res => setTimeout(res, 5000)); // wait for meeting audio
-
+    await new Promise(res => setTimeout(res, 5000));
     console.log("🕒 In meeting... FFmpeg is recording audio");
 
-    // Wait for meeting to end
     let meetingEnded = false;
     while (!meetingEnded) {
       if (page.isClosed()) break;
@@ -103,11 +120,9 @@ ffmpeg.on("close", (code) => {
         console.warn("⚠️ Page/frame error");
         break;
       }
-
       await new Promise((res) => setTimeout(res, 5000));
     }
 
-    // Stop recording
     console.log("🛑 Stopping FFmpeg...");
     ffmpeg.kill("SIGINT");
 
